@@ -15,7 +15,7 @@ const GithubProvider = ({ children }) => {
   const [repos, setRepos] = useState(mockRepos);
   const [followers, setFollowers] = useState(mockFollowers);
   const [requests, setRequest] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setLoading] = useState(false);
   const [error, setError] = useState({ show: false, msg: '' });
 
   //search user
@@ -27,12 +27,30 @@ const GithubProvider = ({ children }) => {
     );
     if (response) {
       setGithubUser(response.data);
-      console.log(response);
+      const { login, followers_url } = response.data;
+      await Promise.allSettled([
+        axios(`${rootUrl}/users/${login}/repos?per_page=100`),
+        axios(`${followers_url}?per_page=100`),
+      ])
+        .then((results) => {
+          const [repos, followers] = results;
+          const status = 'fulfilled';
+          console.log(repos, followers);
+          if (repos.status === status) {
+            setRepos(repos.value.data);
+          }
+          if (followers.status === 'status') {
+            setFollowers(followers.value.data);
+          }
+        })
+        .catch((err) => console.log(error));
     } else {
       toggleError(true, 'there is no user with this username');
     }
+    checkRequests();
     setLoading(false);
   };
+
   //check rate
   const checkRequests = () => {
     axios(`${rootUrl}/rate_limit`)
@@ -68,6 +86,7 @@ const GithubProvider = ({ children }) => {
         toggleError,
         error,
         searchGitHubUser,
+        isLoading,
       }}
     >
       {children}
